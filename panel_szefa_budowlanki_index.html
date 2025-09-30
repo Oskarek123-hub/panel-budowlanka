@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Panel Szefa Budowlanki</title>
+  <style>
+    /* Prosty, czytelny styl */
+    :root{--bg:#f4f6f8;--card:#ffffff;--accent:#1f6feb;--danger:#e55353;--muted:#6b7280}
+    *{box-sizing:border-box}
+    body{font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; background:var(--bg); color:#0f172a}
+    .container{max-width:1000px;margin:28px auto;padding:18px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+    .grid{display:grid;gap:12px}
+    .cols-2{grid-template-columns:1fr 340px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,select,textarea{width:100%;padding:10px;border:1px solid #e6e9ee;border-radius:8px;font-size:14px}
+    button{background:var(--accent);color:#fff;padding:10px 12px;border-radius:8px;border:0;font-weight:600;cursor:pointer}
+    .btn-ghost{background:transparent;color:var(--accent);border:1px solid rgba(31,111,235,0.12)}
+    .small{font-size:13px}
+    .muted{color:var(--muted)}
+    .list{max-height:420px;overflow:auto;padding-right:6px}
+    .plan{padding:10px;border-radius:10px;border:1px solid #eef2f7;margin-bottom:8px}
+    .plan h3{margin:0;font-size:15px}
+    .plan .meta{font-size:12px;color:var(--muted);margin-top:6px}
+    .row{display:flex;gap:8px;align-items:center}
+    .chip{background:#f1f5f9;padding:6px 8px;border-radius:999px;font-size:12px}
+    .danger{background:var(--danger);color:white;padding:6px 8px;border-radius:8px;border:0}
+    footer{margin-top:14px;color:var(--muted);font-size:13px}
+    .top-actions{display:flex;gap:8px;align-items:center}
+    .hidden{display:none}
+    @media (max-width:900px){.cols-2{grid-template-columns:1fr}; .container{padding:12px}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Panel Szefa Budowlanki</h1>
+      <div class="top-actions">
+        <div class="muted small">Zalogowany jako: <span id="currentUser">—</span></div>
+        <button id="logoutBtn" class="btn-ghost small hidden">Wyloguj</button>
+      </div>
+    </header>
+
+    <div id="app">
+      <!-- Ekran logowania / wyboru roli -->
+      <div id="loginView" class="card">
+        <h2 style="margin-top:0">Witaj — wybierz tryb</h2>
+        <p class="muted small">Możesz pracować jako <strong>Kierownik</strong> (pełne uprawnienia) lub jako <strong>Pracownik</strong> (tylko podgląd i swoje zadania).</p>
+
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="bossModeBtn">Zaloguj jako Kierownik</button>
+          <button id="workerModeBtn" class="btn-ghost">Zaloguj jako Pracownik</button>
+        </div>
+
+        <hr style="margin:16px 0" />
+        <div class="small muted">Instrukcja szybkiego hostowania: zapisz ten plik jako <code>index.html</code> i wrzuć na serwer / udostępnij plik, żeby pracownicy mogli się logować. To demo używa localStorage (nie do zastosowań produkcyjnych bez backendu).</div>
+      </div>
+
+      <!-- Panel Kierownika -->
+      <div id="bossView" class="hidden">
+        <div class="grid cols-2" style="gap:16px">
+          <div>
+            <div class="card">
+              <h3>Dodaj pracownika</h3>
+              <div style="margin-top:8px">
+                <label>Imię i nazwisko</label>
+                <input id="w_name" placeholder="np. Jan Kowalski" />
+                <label style="margin-top:8px">Email</label>
+                <input id="w_email" placeholder="jan@firma.pl" />
+                <label style="margin-top:8px">Hasło (proste-demo)</label>
+                <input id="w_pass" placeholder="ustaw hasło" />
+                <label style="margin-top:8px">Rola</label>
+                <select id="w_role"><option value="worker">Pracownik</option><option value="foreman">Brygadzista</option></select>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button id="addWorkerBtn">Dodaj pracownika</button>
+                  <button id="importBtn" class="btn-ghost">Import JSON</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Dodaj plan budowy</h3>
+              <label>Tytuł</label>
+              <input id="p_title" placeholder="Wykop fundamenty - Budynek A" />
+              <label style="margin-top:8px">Opis</label>
+              <textarea id="p_desc" rows="3" placeholder="Szczegóły..."></textarea>
+              <label style="margin-top:8px">Data rozpoczęcia</label>
+              <input id="p_start" type="date" />
+              <label style="margin-top:8px">Deadline (najbliższy termin)</label>
+              <input id="p_deadline" type="date" />
+              <label style="margin-top:8px">Przypisz pracowników (Ctrl/Command by multi)</label>
+              <select id="p_assign" multiple size="4" style="height:90px"></select>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button id="addPlanBtn">Dodaj plan</button>
+                <button id="exportBtn" class="btn-ghost">Eksportuj JSON</button>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Lista pracowników</h3>
+              <div id="workersList" class="list"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <h3>Plany (posortowane — najbliższy termin pierwszy)</h3>
+              <div id="plansList" class="list"></div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Filtry i szybkie akcje</h3>
+              <label>Filtr według pracownika</label>
+              <select id="filterWorker"><option value="all">Wszyscy</option></select>
+              <label style="margin-top:8px">Pokaż</label>
+              <select id="filterStatus"><option value="all">Wszystkie</option><option value="open">Otwarte</option><option value="done">Zakończone</option></select>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button id="clearData" class="btn-ghost">Wyczyść demo (localStorage)</button>
+                <button id="refreshBtn">Odśwież</button>
+              </div>
+            </div>
+
+            <footer class="card small muted" style="margin-top:12px">
+              <strong>Uwaga:</strong> To demo używa przeglądarkowego localStorage. Dla produkcji potrzebujesz backendu z autoryzacją i bazą danych (np. Firebase, Supabase, własny API).
+            </footer>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Pracownika -->
+      <div id="workerView" class="hidden">
+        <div class="grid" style="gap:12px">
+          <div class="card">
+            <h3>Twoje zadania — najbliższy termin</h3>
+            <div id="myPlans" class="list"></div>
+          </div>
+
+          <div class="card">
+            <h3>Wyszukaj plany</h3>
+            <label>Szukaj (tytuł / opis)</label>
+            <input id="searchPlans" placeholder="np. fundament" />
+            <div style="margin-top:10px"><button id="searchBtn">Szukaj</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Proste struktury danych przechowywane w localStorage ---
+    const STORAGE_KEY = 'szef_budowlanki_v1'
+
+    function saveState(state){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) }
+    function loadState(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {workers:[], plans:[], users:[]} }catch(e){return {workers:[], plans:[], users:[]}} }
+
+    // Inicjalizacja demo - jeśli pusta, dodajemy jednego szefa i przykładowych pracowników
+    const defaultInit = ()=>{
+      const state = loadState()
+      if(state.initialized) return state
+      // dodaj przykładowych pracowników
+      state.workers = [
+        {id:uid(), name:'Jan Kowalski', email:'jan@firma.pl', pass:'jan123', role:'worker'},
+        {id:uid(), name:'Anna Nowak', email:'anna@firma.pl', pass:'anna123', role:'foreman'}
+      ]
+      state.plans = [
+        {id:uid(), title:'Wykop fundamenty - Budynek A', desc:'Wykop i przygotowanie pod fundamenty', start:'2025-10-01', deadline:'2025-10-05', assigned:[state.workers[0].id], status:'open', created:Date.now()},
+        {id:uid(), title:'Montaż szalunków - Budynek B', desc:'Szalunki na poziomie -1', start:'2025-09-28', deadline:'2025-10-03', assigned:[state.workers[1].id], status:'open', created:Date.now()}
+      ]
+      state.users = [{id:'boss', name:'Kierownik', pass:'admin'}]
+      state.initialized = true
+      saveState(state)
+      return state
+    }
+
+    function uid(){ return 'id-'+Math.random().toString(36).slice(2,9) }
+
+    // --- Elementy DOM ---
+    const loginView = document.getElementById('loginView')
+    const bossView = document.getElementById('bossView')
+    const workerView = document.getElementById('workerView')
+    const currentUserSpan = document.getElementById('currentUser')
+    const logoutBtn = document.getElementById('logoutBtn')
+
+    // akcje przycisków
+    document.getElementById('bossModeBtn').addEventListener('click', ()=>bossLogin())
+    document.getElementById('workerModeBtn').addEventListener('click', ()=>workerLogin())
+
+    // forms
+    document.getElementById('addWorkerBtn').addEventListener('click', addWorker)
+    document.getElementById('addPlanBtn').addEventListener('click', addPlan)
+    document.getElementById('refreshBtn').addEventListener('click', renderAll)
+    document.getElementById('clearData').addEventListener('click', clearDemo)
+    document.getElementById('exportBtn').addEventListener('click', exportJSON)
+    document.getElementById('importBtn').addEventListener('click', importJSON)
+    document.getElementById('searchBtn').addEventListener('click', searchMyPlans)
+    logoutBtn.addEventListener('click', ()=>{ localStorage.removeItem('currentUser'); location.reload() })
+
+    // filtry
+    document.getElementById('filterWorker').addEventListener('change', renderPlans)
+    document.getElementById('filterStatus').addEventListener('change', renderPlans)
+
+    // init
+    let state = defaultInit()
+    let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null')
+
+    function bossLogin(){
+      // prosta autoryzacja — wyświetl prompt na hasło
+      const pass = prompt('Hasło kierownika (demo):', '')
+      const boss = state.users.find(u=>u.id==='boss')
+      if(pass === boss.pass){
+        currentUser = {id:boss.id, name:boss.name, role:'boss'}
+        localStorage.setItem('currentUser', JSON.stringify(currentUser))
+        showBossView()
+      } else alert('Złe hasło')
+    }
+
+    function workerLogin(){
+      // proste logowanie listą pracowników
+      const email = prompt('Podaj email pracownika (np. jan@firma.pl):')
+      const pass = prompt('Hasło:')
+      if(!email) return
+      const w = state.workers.find(x=>x.email === email && x.pass === pass)
+      if(w){ currentUser = {id:w.id, name:w.name, role:w.role}; localStorage.setItem('currentUser', JSON.stringify(currentUser)); showWorkerView() }
+      else alert('Niepoprawne dane')
+    }
+
+    function showBossView(){
+      loginView.classList.add('hidden')
+      bossView.classList.remove('hidden')
+      workerView.classList.add('hidden')
+      logoutBtn.classList.remove('hidden')
+      currentUserSpan.textContent = currentUser.name + ' (Kierownik)'
+      renderAll()
+    }
+    function showWorkerView(){
+      loginView.classList.add('hidden')
+      bossView.classList.add('hidden')
+      workerView.classList.remove('hidden')
+      logoutBtn.classList.remove('hidden')
+      currentUserSpan.textContent = currentUser.name + ' ('+currentUser.role+')'
+      renderMyPlans()
+    }
+
+    // --- CRUD Pracownicy ---
+    function addWorker(){
+      const name = document.getElementById('w_name').value.trim()
+      const email = document.getElementById('w_email').value.trim()
+      const pass = document.getElementById('w_pass').value.trim()
+      const role = document.getElementById('w_role').value
+      if(!name || !email || !pass){ alert('Wypełnij wszystkie pola pracownika'); return }
+      const id = uid()
+      state.workers.push({id,name,email,pass,role})
+      saveState(state)
+      document.getElementById('w_name').value='';document.getElementById('w_email').value='';document.getElementById('w_pass').value=''
+      renderAll()
+    }
+
+    function removeWorker(id){ if(!confirm('Usuń pracownika?')) return; state.workers = state.workers.filter(w=>w.id!==id); // usuń z przypisań
+      state.plans.forEach(p=>{ p.assigned = p.assigned.filter(a=>a!==id) }); saveState(state); renderAll() }
+
+    // --- CRUD Plany ---
+    function addPlan(){
+      const title = document.getElementById('p_title').value.trim()
+      const desc = document.getElementById('p_desc').value.trim()
+      const start = document.getElementById('p_start').value
+      const deadline = document.getElementById('p_deadline').value
+      const assigned = Array.from(document.getElementById('p_assign').selectedOptions).map(o=>o.value)
+      if(!title || !deadline){ alert('Tytuł i deadline są wymagane'); return }
+      const p = {id:uid(), title, desc, start, deadline, assigned, status:'open', created:Date.now()}
+      state.plans.push(p); saveState(state)
+      // clear
+      document.getElementById('p_title').value='';document.getElementById('p_desc').value='';document.getElementById('p_start').value='';document.getElementById('p_deadline').value=''
+      renderAll()
+    }
+
+    function togglePlanDone(id){ const p = state.plans.find(x=>x.id===id); if(!p) return; p.status = (p.status==='open')?'done':'open'; saveState(state); renderAll(); }
+    function removePlan(id){ if(!confirm('Usuń plan?')) return; state.plans = state.plans.filter(p=>p.id!==id); saveState(state); renderAll() }
+
+    // --- Render ---
+    function renderAll(){ state = loadState(); renderWorkers(); renderPlans(); renderMyPlans(); populateAssignSelect(); populateFilterWorker() }
+
+    function renderWorkers(){ const el = document.getElementById('workersList'); el.innerHTML=''
+      if(state.workers.length===0){ el.innerHTML='<div class="muted">Brak pracowników</div>'; return }
+      state.workers.forEach(w=>{
+        const d = document.createElement('div'); d.className='row'; d.style.justifyContent='space-between'; d.style.marginBottom='8px'
+        d.innerHTML = `<div><strong>${escapeHtml(w.name)}</strong> <div class="muted small">${escapeHtml(w.email)} • ${escapeHtml(w.role)}</div></div>`
+        const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px'
+        const del = document.createElement('button'); del.className='btn-ghost small'; del.textContent='Usuń'; del.onclick=()=>removeWorker(w.id)
+        actions.appendChild(del)
+        d.appendChild(actions)
+        el.appendChild(d)
+      }) }
+
+    function renderPlans(){ const el = document.getElementById('plansList'); el.innerHTML=''
+      let plans = state.plans.slice()
+      // sort by nearest deadline
+      plans.sort((a,b)=>{ if(!a.deadline) return 1; if(!b.deadline) return -1; return new Date(a.deadline) - new Date(b.deadline) })
+      const filterW = document.getElementById('filterWorker').value
+      const filterS = document.getElementById('filterStatus').value
+      plans = plans.filter(p=>{ if(filterW!=='all' && !p.assigned.includes(filterW)) return false; if(filterS!=='all' && p.status!==filterS) return false; return true })
+
+      if(plans.length===0){ el.innerHTML='<div class="muted">Brak planów</div>'; return }
+      plans.forEach(p=>{
+        const div = document.createElement('div'); div.className='plan'
+        const assignedNames = p.assigned.map(id=>{ const w = state.workers.find(x=>x.id===id); return w?w.name:'(nieznany)' }).join(', ')
+        const dl = p.deadline ? new Date(p.deadline).toLocaleDateString('pl-PL') : '—'
+        div.innerHTML = `<h3>${escapeHtml(p.title)} <span style="float:right" class="chip">${p.status==='open'?'Otwarte':'Zakończone'}</span></h3>
+          <div class="meta">Deadline: <strong>${dl}</strong> • Przypisani: ${escapeHtml(assignedNames)}</div>
+          <p class="muted small" style="margin-top:8px">${escapeHtml(p.desc || '')}</p>
+        `
+        const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='8px'; actions.style.marginTop='8px'
+        const doneBtn = document.createElement('button'); doneBtn.textContent = p.status==='open' ? 'Oznacz jako wykonane' : 'Oznacz jako otwarte'; doneBtn.onclick=()=>togglePlanDone(p.id)
+        const delBtn = document.createElement('button'); delBtn.className='danger small'; delBtn.textContent='Usuń'; delBtn.onclick=()=>removePlan(p.id)
+        actions.appendChild(doneBtn); actions.appendChild(delBtn)
+        div.appendChild(actions)
+        el.appendChild(div)
+      }) }
+
+    function renderMyPlans(){ const el = document.getElementById('myPlans'); el.innerHTML=''
+      if(!currentUser) return
+      let plans = state.plans.slice()
+      // jeśli boss przegląda swoje - pokaż wszystko
+      if(currentUser.role !== 'boss'){
+        plans = plans.filter(p=>p.assigned.includes(currentUser.id))
+      }
+      plans.sort((a,b)=> new Date(a.deadline||'3000-01-01') - new Date(b.deadline||'3000-01-01'))
+      if(plans.length===0){ el.innerHTML='<div class="muted">Brak przypisanych zadań</div>'; return }
+      plans.forEach(p=>{
+        const d = document.createElement('div'); d.className='plan'
+        const dl = p.deadline ? new Date(p.deadline).toLocaleDateString('pl-PL') : '—'
+        d.innerHTML = `<h3>${escapeHtml(p.title)} <span style="float:right" class="chip">${dl}</span></h3>
+        <div class="meta">Status: <strong>${p.status}</strong></div>
+        <p class="muted small" style="margin-top:8px">${escapeHtml(p.desc || '')}</p>`
+        if(currentUser.role !== 'boss'){
+          const btn = document.createElement('button'); btn.textContent = p.status==='open' ? 'Zgłoś wykonane' : 'Otwórz ponownie'; btn.onclick=()=>{ togglePlanDone(p.id); renderMyPlans() }
+          d.appendChild(btn)
+        }
+        el.appendChild(d)
+      }) }
+
+    function populateAssignSelect(){ const sel = document.getElementById('p_assign'); sel.innerHTML=''; state.workers.forEach(w=>{ const o=document.createElement('option'); o.value=w.id; o.textContent = w.name + ' — ' + w.role; sel.appendChild(o) }) }
+    function populateFilterWorker(){ const sel = document.getElementById('filterWorker'); const cur = sel.value || 'all'; sel.innerHTML='<option value="all">Wszyscy</option>'; state.workers.forEach(w=>{ const o=document.createElement('option'); o.value=w.id; o.textContent=w.name; sel.appendChild(o) }); sel.value = cur }
+
+    // --- Import / Export ---
+    function exportJSON(){ const data = JSON.stringify(state, null, 2); const blob = new Blob([data], {type:'application/json'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='panel_budowlanka_export.json'; a.click(); URL.revokeObjectURL(url) }
+    function importJSON(){ const input = document.createElement('input'); input.type='file'; input.accept='application/json'; input.onchange = e => { const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = ev => { try{ const imported = JSON.parse(ev.target.result); if(imported.workers && imported.plans){ state = imported; saveState(state); alert('Zaimportowano dane'); renderAll() } else alert('Nieprawidłowy format') }catch(err){ alert('Błąd odczytu pliku') } }; reader.readAsText(file) }; input.click() }
+
+    function clearDemo(){ if(!confirm('Usunąć wszystkie dane demo z localStorage?')) return; localStorage.removeItem(STORAGE_KEY); location.reload() }
+
+    // --- Wyszukiwanie dla pracownika ---
+    function searchMyPlans(){ const q = document.getElementById('searchPlans').value.trim().toLowerCase(); if(!q) return renderMyPlans(); const matches = state.plans.filter(p=> (p.title + ' ' + (p.desc||'')).toLowerCase().includes(q) && p.assigned.includes(currentUser.id)); const el = document.getElementById('myPlans'); el.innerHTML=''; if(matches.length===0){ el.innerHTML='<div class="muted">Brak wyników</div>'; return } matches.forEach(p=>{ const d=document.createElement('div'); d.className='plan'; d.innerHTML=`<h3>${escapeHtml(p.title)}</h3><div class="meta">Deadline: ${p.deadline||'—'}</div><p class="muted small">${escapeHtml(p.desc||'')}</p>`; el.appendChild(d) }) }
+
+    // --- Utils ---
+    function escapeHtml(s){ if(!s) return ''; return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;') }
+
+    // Jeśli jest zalogowany użytkownik w localStorage — automatyczne wejście
+    if(currentUser){ if(currentUser.role==='boss') showBossView(); else showWorkerView() }
+    else renderAll()
+  </script>
+</body>
+</html>
